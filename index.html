@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Toroidal Word Search Puzzle Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
             --primary: #4f46e5;
@@ -243,7 +244,7 @@
         </div>
         <div class="control-group">
             <label for="iterations">Optimization Iterations:</label>
-            <input type="number" id="iterations" value="100" min="10" max="1000">
+            <input type="number" id="iterations" value="100" min="1" max="500">
         </div>
         <button id="generateBtn">Generate Puzzle</button>
     </div>
@@ -347,19 +348,19 @@
             let runMore = true;
 
             while (runMore) {
-                let result = runOptimizationPass(rows, cols, validWords, cleanSolution.length, iterations);
+                let result = runOptimizationPassWithPruning(rows, cols, validWords, cleanSolution.length, iterations);
                 if (!bestAttempt || result.score > bestAttempt.score) {
                     bestAttempt = result;
                 }
 
-                // If we found a configuration where all words fit AND empty squares match exact solution length, stop early!
-                if (bestAttempt.placedWords.length === validWords.length && bestAttempt.emptyCount === cleanSolution.length) {
+                // If exact solution length matches remaining empty slots, we have a perfect placement
+                if (bestAttempt.emptyCount === cleanSolution.length) {
                     break;
                 }
 
-                const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try 100 more iterations?`);
+                const userWantsMore = confirm(`Not all solution space constraints matched cleanly (${bestAttempt.placedWords.length} of ${validWords.length} words placed, ${bestAttempt.emptyCount} empty cells vs ${cleanSolution.length} solution length). Would you like to try 10 more iterations?`);
                 if (userWantsMore) {
-                    iterations = 100;
+                    iterations = 10;
                 } else {
                     runMore = false;
                 }
@@ -370,7 +371,7 @@
                 warningTexts.push(`Ignored word(s) too long for grid: ${ignoredWords.join(', ')}.`);
             }
             if (bestAttempt.placedWords.length < validWords.length) {
-                warningTexts.push(`Notice: Only ${bestAttempt.placedWords.length} out of ${validWords.length} words could fit.`);
+                warningTexts.push(`Notice: ${validWords.length - bestAttempt.placedWords.length} word(s) were automatically removed/omitted to ensure the hidden solution fits perfectly.`);
             }
 
             if (warningTexts.length > 0) {
@@ -418,67 +419,79 @@
     let currentSolutionCoords = new Set();
     let showSolutionState = false;
 
-    function runOptimizationPass(rows, cols, words, targetEmptyCount, maxIterations) {
+    function runOptimizationPassWithPruning(rows, cols, words, targetEmptyCount, maxIterations) {
         let bestAttempt = null;
         let bestScore = -1;
 
+        // Sort words by length descending to place larger words first
+        const sortedWords = words.map((w) => ({ word: w, clean: w.replace(/\s+/g, '') }))
+                                 .sort((a, b) => b.clean.length - a.clean.length);
+
         for (let iter = 0; iter < maxIterations; iter++) {
-            let result = tryPlaceAllWords(rows, cols, words);
+            let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
+            let placedWords = [];
             
-            // Calculate how many empty cells remain
+            // Try placing words one by one. If placing a word would make remaining spaces fewer than targetEmptyCount, or if it fails, we can choose to skip it.
+            for (let item of sortedWords) {
+                let totalCells = rows * cols;
+                let currentFilled = 0;
+                for(let r=0; r<rows; r++) {
+                    for(let c=0; c<cols; c++) {
+                        if(grid[r][c] !== '') currentFilled++;
+                    }
+                }
+                let currentEmpty = totalCells - currentFilled;
+
+                // Check if adding this word leaves enough room for the solution string
+                // (accounting for overlap potential, but at least ensuring hard cell count bounds)
+                if (currentEmpty - item.clean.length < targetEmptyCount && placedWords.length > 0) {
+                    // Skip/remove this word to keep enough room for the solution string!
+                    continue;
+                }
+
+                let placed = false;
+                let attempts = 0;
+                while (!placed && attempts < 50) {
+                    attempts++;
+                    let startR = Math.floor(Math.random() * rows);
+                    let startC = Math.floor(Math.random() * cols);
+                    let dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
+
+                    if (canPlaceWord(grid, item.clean, startR, startC, dir, rows, cols)) {
+                        let coords = placeWord(grid, item.clean, startR, startC, dir, rows, cols);
+                        placedWords.push({ originalWord: item.word, cleanWord: item.clean, coords });
+                        placed = true;
+                    }
+                }
+            }
+
+            // Calculate exact empty count after placements
             let emptyCount = 0;
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
-                    if (result.grid[r][c] === '') emptyCount++;
+                    if (grid[r][c] === '') emptyCount++;
                 }
             }
 
-            // Scoring system:
-            // 1. Prioritize placing more words heavily (weight by 1000)
-            // 2. Prioritize getting emptyCount closer to targetEmptyCount (exact match gets max bonus)
-            let wordCount = result.placedWords.length;
+            // Score configuration:
+            // - Exact match on emptyCount matching targetEmptyCount is highest priority (bonus)
+            // - Maximizing word count secondary
             let distanceToTarget = Math.abs(emptyCount - targetEmptyCount);
-            let score = (wordCount * 1000) - distanceToTarget;
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestAttempt = { ...result, emptyCount, score };
+            let score = (placedWords.length * 10000) - (distanceToTarget * 100);
+            if (emptyCount === targetEmptyCount) {
+                score += 50000; // Major bonus for zero unused discrepancy squares
             }
 
-            if (wordCount === words.length && emptyCount === targetEmptyCount) {
-                break; // Perfect match found!
+            if (!bestAttempt || score > bestAttempt.score) {
+                bestAttempt = { grid, placedWords, emptyCount, score };
+            }
+
+            if (emptyCount === targetEmptyCount) {
+                break; // Perfect match achieved!
             }
         }
+
         return bestAttempt;
-    }
-
-    function tryPlaceAllWords(rows, cols, words) {
-        let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
-        let placedWords = [];
-
-        const sortedIndices = words.map((w) => ({ word: w, clean: w.replace(/\s+/g, '') }))
-                                   .sort((a, b) => b.clean.length - a.clean.length);
-
-        for (let item of sortedIndices) {
-            let word = item.clean;
-            let placed = false;
-            let attempts = 0;
-
-            while (!placed && attempts < 100) {
-                attempts++;
-                let startR = Math.floor(Math.random() * rows);
-                let startC = Math.floor(Math.random() * cols);
-                let dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
-
-                if (canPlaceWord(grid, word, startR, startC, dir, rows, cols)) {
-                    let coords = placeWord(grid, word, startR, startC, dir, rows, cols);
-                    placedWords.push({ originalWord: item.word, cleanWord: word, coords });
-                    placed = true;
-                }
-            }
-        }
-
-        return { grid, placedWords };
     }
 
     function canPlaceWord(grid, word, startR, startC, dir, rows, cols) {
