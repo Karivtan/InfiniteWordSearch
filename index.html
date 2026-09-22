@@ -645,15 +645,18 @@
                     score += 50000;
                 }
 
-                let isPerfectFit = (emptyCount === targetEmptyCount && placedWords.length === sortedWords.length);
-
-                if (!bestAttempt || score > bestAttempt.score) {
-                    bestAttempt = { grid, placedWords, emptyCount, score, isPerfectFit };
-                }
-
-                // Stop calculations immediately once a valid fit is found
+                let isPerfectFit =
+                    (placedWords.length === sortedWords.length &&
+                     emptyCount >= targetEmptyCount);
+                
                 if (isPerfectFit) {
-                    break;
+                    return {
+                        grid,
+                        placedWords,
+                        emptyCount,
+                        score,
+                        isPerfectFit: true
+                    };
                 }
             }
 
