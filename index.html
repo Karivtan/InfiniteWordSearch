@@ -316,13 +316,14 @@
             const solution = lines[lines.length - 1];
             const rawWords = lines.slice(0, lines.length - 1);
 
-            // Check if solution fits in the grid
             const maxDim = Math.max(rows, cols);
             const totalCells = rows * cols;
             const cleanSolution = solution.replace(/\s+/g, '');
 
+            // STRICT CHECK: The solution characters must completely fit inside the grid size
             if (cleanSolution.length > totalCells) {
-                showError(`The hidden solution is too long (${cleanSolution.length} characters) to fit inside a ${cols}x${rows} (${totalCells} cells) grid. Please increase the grid size or shorten the solution.`);
+                showError(`Error: The hidden solution has ${cleanSolution.length} characters, but the ${cols}x${rows} grid only has ${totalCells} cells. The solution must fit completely. Please increase grid dimensions or shorten the solution.`);
+                document.getElementById('outputSection').style.display = 'none';
                 return;
             }
 
@@ -354,21 +355,18 @@
                     bestAttempt = result;
                 }
 
-                // If all words fit, we're done
                 if (bestAttempt.placedWords.length === validWords.length) {
                     break;
                 }
 
-                // Prompt user if not all words fit
                 const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try 10 more iterations?`);
                 if (userWantsMore) {
-                    iterations = 10; // add 10 more iterations per confirmation prompt
+                    iterations = 10;
                 } else {
                     runMore = false;
                 }
             }
 
-            // Construct warning messages
             let warningTexts = [];
             if (ignoredWords.length > 0) {
                 warningTexts.push(`Ignored word(s) too long for grid: ${ignoredWords.join(', ')}.`);
@@ -388,7 +386,7 @@
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     if (grid[r][c] === '') {
-                        grid[r][c] = cleanSolution[solIndex % cleanSolution.length];
+                        grid[r][c] = cleanSolution[solIndex];
                         solIndex++;
                     }
                 }
