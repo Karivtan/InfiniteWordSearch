@@ -287,7 +287,7 @@
         const fileInput = document.getElementById('txtFile');
         const rows = parseInt(document.getElementById('rows').value);
         const cols = parseInt(document.getElementById('cols').value);
-        const iterations = parseInt(document.getElementById('iterations').value) || 10;
+        let iterations = parseInt(document.getElementById('iterations').value) || 10;
         
         const errorMsg = document.getElementById('errorMsg');
         const warningMsg = document.getElementById('warningMsg');
@@ -314,17 +314,93 @@
             }
 
             const solution = lines[lines.length - 1];
-            const words = lines.slice(0, lines.length - 1);
+            const rawWords = lines.slice(0, lines.length - 1);
 
-            for (let w of words) {
+            // Check if solution fits in the grid
+            const maxDim = Math.max(rows, cols);
+            const totalCells = rows * cols;
+            const cleanSolution = solution.replace(/\s+/g, '');
+
+            if (cleanSolution.length > totalCells) {
+                showError(`The hidden solution is too long (${cleanSolution.length} characters) to fit inside a ${cols}x${rows} (${totalCells} cells) grid. Please increase the grid size or shorten the solution.`);
+                return;
+            }
+
+            // Filter out words that are too long for the grid and track them
+            const validWords = [];
+            const ignoredWords = [];
+
+            for (let w of rawWords) {
                 const cleanW = w.replace(/\s+/g, '');
-                if (cleanW.length > Math.max(rows, cols)) {
-                    showError(`Word "${w}" is longer than the maximum grid dimension (${Math.max(rows, cols)}).`);
-                    return;
+                if (cleanW.length > maxDim) {
+                    ignoredWords.push(w);
+                } else {
+                    validWords.push(w);
                 }
             }
 
-            generateOptimalPuzzle(rows, cols, words, solution, iterations);
+            if (validWords.length === 0) {
+                showError("All words are too long to fit in the specified grid size.");
+                return;
+            }
+
+            // Run optimization loop with interactive prompt if not all words fit
+            let bestAttempt = null;
+            let runMore = true;
+
+            while (runMore) {
+                let result = runOptimizationPass(rows, cols, validWords, iterations);
+                if (!bestAttempt || result.placedWords.length > bestAttempt.placedWords.length) {
+                    bestAttempt = result;
+                }
+
+                // If all words fit, we're done
+                if (bestAttempt.placedWords.length === validWords.length) {
+                    break;
+                }
+
+                // Prompt user if not all words fit
+                const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try 10 more iterations?`);
+                if (userWantsMore) {
+                    iterations = 10; // add 10 more iterations per confirmation prompt
+                } else {
+                    runMore = false;
+                }
+            }
+
+            // Construct warning messages
+            let warningTexts = [];
+            if (ignoredWords.length > 0) {
+                warningTexts.push(`Ignored word(s) too long for grid: ${ignoredWords.join(', ')}.`);
+            }
+            if (bestAttempt.placedWords.length < validWords.length) {
+                warningTexts.push(`Notice: Only ${bestAttempt.placedWords.length} out of ${validWords.length} words could fit.`);
+            }
+
+            if (warningTexts.length > 0) {
+                showWarning(warningTexts.join(' '));
+            }
+
+            // Fill remaining empty cells sequentially with characters from the solution string
+            const grid = bestAttempt.grid;
+            let solIndex = 0;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = cleanSolution[solIndex % cleanSolution.length];
+                        solIndex++;
+                    }
+                }
+            }
+
+            currentSolutionCoords.clear();
+            bestAttempt.placedWords.forEach(pw => {
+                pw.coords.forEach(coord => currentSolutionCoords.add(`${coord.r},${coord.c}`));
+            });
+
+            const successfullyPlacedWordLabels = bestAttempt.placedWords.map(pw => pw.originalWord);
+            renderUI(grid, successfullyPlacedWordLabels, solution);
 
         } catch (err) {
             showError("Error reading file: " + err.message);
@@ -346,7 +422,7 @@
     let currentSolutionCoords = new Set();
     let showSolutionState = false;
 
-    function generateOptimalPuzzle(rows, cols, words, solution, maxIterations) {
+    function runOptimizationPass(rows, cols, words, maxIterations) {
         let bestAttempt = null;
         let maxPlacedCount = -1;
 
@@ -360,46 +436,14 @@
                 break;
             }
         }
-
-        if (!bestAttempt || bestAttempt.placedWords.length === 0) {
-            showError(`Could not place any words into the ${rows}x${cols} grid.`);
-            document.getElementById('outputSection').style.display = 'none';
-            return;
-        }
-
-        if (bestAttempt.placedWords.length < words.length) {
-            showWarning(`Notice: Only ${bestAttempt.placedWords.length} out of ${words.length} words could fit. The puzzle was generated using the optimum fit found across ${maxIterations} iteration(s).`);
-        }
-
-        // Fill remaining empty cells sequentially with characters from the solution string
-        const grid = bestAttempt.grid;
-        const cleanSolution = solution.replace(/\s+/g, '').toUpperCase();
-        let solIndex = 0;
-
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                if (grid[r][c] === '') {
-                    grid[r][c] = cleanSolution[solIndex % cleanSolution.length];
-                    solIndex++;
-                }
-            }
-        }
-
-        currentSolutionCoords.clear();
-        bestAttempt.placedWords.forEach(pw => {
-            pw.coords.forEach(coord => currentSolutionCoords.add(`${coord.r},${coord.c}`));
-        });
-
-        const successfullyPlacedWordLabels = bestAttempt.placedWords.map(pw => pw.originalWord);
-
-        renderUI(grid, successfullyPlacedWordLabels, solution);
+        return bestAttempt;
     }
 
     function tryPlaceAllWords(rows, cols, words) {
         let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
         let placedWords = [];
 
-        const sortedIndices = words.map((w, idx) => ({ word: w, clean: w.replace(/\s+/g, ''), idx }))
+        const sortedIndices = words.map((w) => ({ word: w, clean: w.replace(/\s+/g, '') }))
                                    .sort((a, b) => b.clean.length - a.clean.length);
 
         for (let item of sortedIndices) {
