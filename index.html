@@ -316,7 +316,6 @@
             const solution = lines[lines.length - 1];
             const words = lines.slice(0, lines.length - 1);
 
-            // Validate word lengths against grid size
             for (let w of words) {
                 const cleanW = w.replace(/\s+/g, '');
                 if (cleanW.length > Math.max(rows, cols)) {
@@ -351,14 +350,12 @@
         let bestAttempt = null;
         let maxPlacedCount = -1;
 
-        // Run multiple iterations to find the optimum placement fit
         for (let iter = 0; iter < maxIterations; iter++) {
             let result = tryPlaceAllWords(rows, cols, words);
             if (result.placedWords.length > maxPlacedCount) {
                 maxPlacedCount = result.placedWords.length;
                 bestAttempt = result;
             }
-            // If all words successfully fit, we can exit early
             if (maxPlacedCount === words.length) {
                 break;
             }
@@ -371,17 +368,19 @@
         }
 
         if (bestAttempt.placedWords.length < words.length) {
-            const missingCount = words.length - bestAttempt.placedWords.length;
             showWarning(`Notice: Only ${bestAttempt.placedWords.length} out of ${words.length} words could fit. The puzzle was generated using the optimum fit found across ${maxIterations} iteration(s).`);
         }
 
-        // Fill remaining empty cells with random letters
+        // Fill remaining empty cells sequentially with characters from the solution string
         const grid = bestAttempt.grid;
-        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const cleanSolution = solution.replace(/\s+/g, '').toUpperCase();
+        let solIndex = 0;
+
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 if (grid[r][c] === '') {
-                    grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+                    grid[r][c] = cleanSolution[solIndex % cleanSolution.length];
+                    solIndex++;
                 }
             }
         }
@@ -391,7 +390,6 @@
             pw.coords.forEach(coord => currentSolutionCoords.add(`${coord.r},${coord.c}`));
         });
 
-        // Use the list of successfully placed words for the UI
         const successfullyPlacedWordLabels = bestAttempt.placedWords.map(pw => pw.originalWord);
 
         renderUI(grid, successfullyPlacedWordLabels, solution);
@@ -401,7 +399,6 @@
         let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
         let placedWords = [];
 
-        // Sort words by length descending to prioritize longer words
         const sortedIndices = words.map((w, idx) => ({ word: w, clean: w.replace(/\s+/g, ''), idx }))
                                    .sort((a, b) => b.clean.length - a.clean.length);
 
