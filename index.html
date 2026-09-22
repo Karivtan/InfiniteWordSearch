@@ -287,7 +287,7 @@
         const fileInput = document.getElementById('txtFile');
         const rows = parseInt(document.getElementById('rows').value);
         const cols = parseInt(document.getElementById('cols').value);
-        let iterations = parseInt(document.getElementById('iterations').value) || 10;
+        let iterations = parseInt(document.getElementById('iterations').value) || 100;
         
         const errorMsg = document.getElementById('errorMsg');
         const warningMsg = document.getElementById('warningMsg');
@@ -359,7 +359,7 @@
 
                 const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try 10 more iterations?`);
                 if (userWantsMore) {
-                    iterations = 10;
+                    iterations = 100;
                 } else {
                     runMore = false;
                 }
