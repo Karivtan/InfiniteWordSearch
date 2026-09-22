@@ -243,7 +243,7 @@
         </div>
         <div class="control-group">
             <label for="iterations">Optimization Iterations:</label>
-            <input type="number" id="iterations" value="10" min="1" max="100">
+            <input type="number" id="iterations" value="100" min="10" max="1000">
         </div>
         <button id="generateBtn">Generate Puzzle</button>
     </div>
@@ -357,7 +357,7 @@
                     break;
                 }
 
-                const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try 10 more iterations?`);
+                const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try 100 more iterations?`);
                 if (userWantsMore) {
                     iterations = 100;
                 } else {
