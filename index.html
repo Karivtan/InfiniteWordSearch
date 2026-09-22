@@ -737,36 +737,13 @@
             outputSection.style.display = 'flex';
         }
 
-        document.getElementById('toggleSolutionBtn').addEventListener('click', () => {
-            showSolutionState = !showSolutionState;
-            const cells = document.querySelectorAll('.cell');
-            
-            cells.forEach(cell => {
-                const key = `${cell.dataset.row},${cell.dataset.col}`;
-                if (showSolutionState && currentSolutionCoords.has(key)) {
-                    cell.classList.add('highlight');
-                } else {
-                    cell.classList.remove('highlight');
-                }
-            });
-
-            document.getElementById('toggleSolutionBtn').textContent = showSolutionState ? "Hide Solution Highlight" : "Toggle Solution Highlight";
-        });
-
-        document.getElementById('printBtn').addEventListener('click', () => {
-            if (showSolutionState) {
-                document.getElementById('toggleSolutionBtn').click();
-            }
-            printPuzzle();
-        });
-
         function printPuzzle() {
             const printWindow = window.open('', '_blank');
             
             // Collect all words from the hidden or visible word list data
             const allWordsList = window.currentWordList || Array.from(document.querySelectorAll('#word-list-container .word-tag')).map(el => el.textContent.trim());
         
-            printWindow.document.write(`
+            printWindow.document.write('
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -863,9 +840,34 @@
                     </script>
                 </body>
                 </html>
-            `);
+            ');
             printWindow.document.close();
         }
+
+        document.getElementById('toggleSolutionBtn').addEventListener('click', () => {
+            showSolutionState = !showSolutionState;
+            const cells = document.querySelectorAll('.cell');
+            
+            cells.forEach(cell => {
+                const key = `${cell.dataset.row},${cell.dataset.col}`;
+                if (showSolutionState && currentSolutionCoords.has(key)) {
+                    cell.classList.add('highlight');
+                } else {
+                    cell.classList.remove('highlight');
+                }
+            });
+
+            document.getElementById('toggleSolutionBtn').textContent = showSolutionState ? "Hide Solution Highlight" : "Toggle Solution Highlight";
+        });
+
+        document.getElementById('printBtn').addEventListener('click', () => {
+            if (showSolutionState) {
+                document.getElementById('toggleSolutionBtn').click();
+            }
+            printPuzzle();
+        });
+
+        
     </script>
 </body>
 </html>
