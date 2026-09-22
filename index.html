@@ -1,1525 +1,764 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Toroidal Word Search Puzzle Generator</title>
-
     <script src="https://cdn.tailwindcss.com"></script>
-
     <style>
-
         :root {
-
             --primary: #4f46e5;
-
             --primary-hover: #4338ca;
-
             --bg-color: #f8fafc;
-
             --card-bg: #ffffff;
-
             --text-color: #1e293b;
-
             --border-color: #cbd5e1;
-
         }
-
-
 
         body {
-
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-
             background-color: var(--bg-color);
-
             color: var(--text-color);
-
             margin: 0;
-
             padding: 20px;
-
             display: flex;
-
             flex-direction: column;
-
             align-items: center;
-
         }
-
-
 
         .container {
-
             max-width: 900px;
-
             width: 100%;
-
             background: var(--card-bg);
-
             padding: 30px;
-
             border-radius: 12px;
-
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-
         }
-
-
 
         h1 {
-
             margin-top: 0;
-
             color: var(--primary);
-
             text-align: center;
-
         }
-
-
 
         .controls {
-
             display: grid;
-
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-
             gap: 20px;
-
             margin-bottom: 25px;
-
             padding: 20px;
-
             background: #f1f5f9;
-
             border-radius: 8px;
-
         }
-
-
 
         .control-group {
-
             display: flex;
-
             flex-direction: column;
-
         }
-
-
 
         label {
-
             font-weight: 600;
-
             margin-bottom: 6px;
-
             font-size: 0.9rem;
-
         }
-
-
 
         input[type="number"], input[type="file"] {
-
             padding: 8px;
-
             border: 1px solid var(--border-color);
-
             border-radius: 6px;
-
             font-size: 1rem;
-
             background: white;
-
         }
-
-
 
         button {
-
             background-color: var(--primary);
-
             color: white;
-
             border: none;
-
             padding: 10px 20px;
-
             font-size: 1rem;
-
             font-weight: 600;
-
             border-radius: 6px;
-
             cursor: pointer;
-
             transition: background 0.2s;
-
             grid-column: 1 / -1;
-
         }
-
-
 
         button:hover {
-
             background-color: var(--primary-hover);
-
         }
-
-
 
         .output-section {
-
             display: flex;
-
             flex-direction: column;
-
         }
-
-
 
         .grid-container {
-
             overflow-x: auto;
-
             max-width: 100%;
-
             padding: 10px;
-
             display: flex;
-
             justify-content: center;
-
         }
-
-
 
         .puzzle-grid {
-
             display: grid;
-
             gap: 2px;
-
             background: #e2e8f0;
-
             border: 2px solid #cbd5e1;
-
             padding: 4px;
-
             border-radius: 6px;
-
             user-select: none;
-
         }
-
-
 
         .cell {
-
             width: 32px;
-
             height: 32px;
-
             background: white;
-
             display: flex;
-
             align-items: center;
-
             justify-content: center;
-
             font-weight: bold;
-
             font-size: 1.1rem;
-
             text-transform: uppercase;
-
             border-radius: 2px;
-
         }
-
-
 
         .cell.highlight {
-
             background-color: #fde047 !important;
-
         }
-
-
 
         .info-panel {
-
             width: 100%;
-
             display: grid;
-
             grid-template-columns: 1fr 1fr;
-
             gap: 20px;
-
             margin-top: 20px;
-
         }
-
-
 
         .panel-box {
-
             background: #f8fafc;
-
             border: 1px solid var(--border-color);
-
             padding: 15px;
-
             border-radius: 8px;
-
         }
-
-
 
         .panel-box h3 {
-
             margin-top: 0;
-
             color: var(--primary);
-
             font-size: 1.1rem;
-
         }
-
-
 
         ul {
-
             margin: 0;
-
             padding-left: 20px;
-
             max-height: 150px;
-
             overflow-y: auto;
-
         }
-
-
 
         li {
-
             margin-bottom: 4px;
-
         }
-
-
 
         .solution-text {
-
             font-weight: bold;
-
             color: #16a34a;
-
             font-size: 1.1rem;
-
             word-break: break-all;
-
         }
-
-
 
         .stats-text {
-
             font-weight: 600;
-
             color: #475569;
-
             font-size: 0.95rem;
-
             margin-top: 10px;
-
             text-align: center;
-
         }
-
-
 
         .error {
-
             color: #dc2626;
-
             background: #fee2e2;
-
             padding: 10px;
-
             border-radius: 6px;
-
             margin-bottom: 15px;
-
             text-align: center;
-
             display: none;
-
         }
-
-
 
         .warning {
-
             color: #b45309;
-
             background: #fef3c7;
-
             padding: 10px;
-
             border-radius: 6px;
-
             margin-bottom: 15px;
-
             text-align: center;
-
             display: none;
-
         }
-
-
 
         .action-buttons {
-
             display: flex;
-
             gap: 10px;
-
             width: 100%;
-
             justify-content: center;
-
             margin-top: 20px;
-
         }
-
-
 
         .action-buttons button {
-
             grid-column: auto;
-
             flex: 1;
-
         }
-
-
 
         /* Custom Interactive Modal */
-
         .modal-overlay {
-
             position: fixed;
-
             top: 0;
-
             left: 0;
-
             width: 100%;
-
             height: 100%;
-
             background: rgba(0, 0, 0, 0.5);
-
             display: flex;
-
             align-items: center;
-
             justify-content: center;
-
             z-index: 1000;
-
             display: none;
-
         }
-
-
 
         .modal-content {
-
             background: white;
-
             padding: 25px;
-
             border-radius: 12px;
-
             max-width: 450px;
-
             width: 90%;
-
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-
             text-align: center;
-
         }
-
-
 
         .modal-content h3 {
-
             margin-top: 0;
-
             color: var(--primary);
-
         }
-
-
 
         .modal-buttons {
-
             display: flex;
-
             flex-direction: column;
-
             gap: 10px;
-
             margin-top: 20px;
-
         }
-
-
 
         .modal-buttons button {
-
             grid-column: auto;
-
             width: 100%;
-
             padding: 10px;
-
             font-size: 0.95rem;
-
         }
-
-
 
         @media print {
-
             body {
-
                 background: white;
-
                 padding: 0;
-
             }
-
             .controls, .error, .warning, .action-buttons, #solutionPanel, #statsDisplay {
-
                 display: none !important;
-
             }
-
             .container {
-
                 box-shadow: none;
-
                 padding: 0;
-
                 max-width: 100%;
-
             }
-
             h1 {
-
                 font-size: 1.5rem;
-
                 margin-bottom: 10px;
-
             }
-
             .info-panel {
-
                 grid-template-columns: 1fr;
-
             }
-
             .cell {
-
                 border: 1px solid #000;
-
             }
-
         }
-
     </style>
-
 </head>
-
 <body>
 
-
-
     <div class="container">
-
         <h1>Toroidal Word Search Generator</h1>
-
         
-
         <div id="errorMsg" class="error"></div>
-
         <div id="warningMsg" class="warning"></div>
 
-
-
         <div class="controls">
-
             <div class="control-group">
-
                 <label for="txtFile">Upload Word List (.txt):</label>
-
                 <input type="file" id="txtFile" accept=".txt">
-
             </div>
-
             <div class="control-group">
-
                 <label for="cols">Grid Width (Columns - n):</label>
-
                 <input type="number" id="cols" value="12" min="3" max="40">
-
             </div>
-
             <div class="control-group">
-
                 <label for="rows">Grid Height (Rows - m):</label>
-
                 <input type="number" id="rows" value="12" min="3" max="40">
-
             </div>
-
             <div class="control-group">
-
                 <label for="iterations">Optimization Iterations:</label>
-
                 <input type="number" id="iterations" value="1000" min="1" max="10000">
-
             </div>
-
             <button id="generateBtn">Generate Puzzle</button>
-
         </div>
 
-
-
         <div class="output-section" id="outputSection" style="display: none;">
-
             <div class="grid-container">
-
                 <div id="puzzleGrid" class="puzzle-grid"></div>
-
             </div>
-
-
 
             <div id="statsDisplay" class="stats-text">Total Placement Attempts: 0</div>
 
-
-
-            <div class="info-panel">
-
+           <div class="info-panel">
                 <div class="panel-box">
-
                     <h3>Words to Find:</h3>
-
                     <ul id="wordList"></ul>
-
                 </div>
 
-                <div class="panel-box" id="solutionPanel">
-
+               <div class="panel-box" id="solutionPanel">
                     <h3>Hidden Solution:</h3>
-
                     <p id="solutionDisplay" class="solution-text">-</p>
-
                 </div>
-
             </div>
-
             
-
             <div class="action-buttons">
-
                 <button id="toggleSolutionBtn" style="background-color: #0d9488;">Toggle Solution Highlight</button>
-
                 <button id="printBtn" style="background-color: #2563eb;">Print / Save to PDF</button>
-
             </div>
-
         </div>
-
     </div>
-
-
 
     <!-- Interactive Modal for Unresolved Iteration / Grid Options -->
-
     <div id="optionsModal" class="modal-overlay">
-
         <div class="modal-content">
-
             <h3>Iteration Limit Reached</h3>
-
             <p id="modalText" style="margin-bottom: 15px; color: #475569; font-size: 0.95rem;"></p>
-
             <div class="modal-buttons">
-
                 <button id="modalShrinkRowBtn" style="background-color: #d97706;">Shrink by 1 Row</button>
-
                 <button id="modalShrinkColBtn" style="background-color: #d97706;">Shrink by 1 Column</button>
-
                 <button id="modalMoreIterBtn" style="background-color: #4f46e5;">Try 1000 More Iterations</button>
-
                 <button id="modalStopBtn" style="background-color: #dc2626;">Stop with Incomplete Solution</button>
-
             </div>
-
         </div>
-
     </div>
 
-
-
     <script>
-
         const DIRECTIONS = [
-
             {r: 0, c: 1},   // Right
-
             {r: 0, c: -1},  // Left
-
             {r: 1, c: 0},   // Down
-
             {r: -1, c: 0},  // Up
-
             {r: 1, c: 1},   // Diagonal Down-Right
-
             {r: 1, c: -1},  // Diagonal Down-Left
-
             {r: -1, c: 1},  // Diagonal Up-Right
-
             {r: -1, c: -1}  // Diagonal Up-Left
-
         ];
 
-
-
         let currentSolutionCoords = new Set();
-
         let showSolutionState = false;
-
         let modalResolver = null;
-
         let totalAttemptsCounter = 0;
 
-
-
         document.getElementById('generateBtn').addEventListener('click', async () => {
-
             totalAttemptsCounter = 0;
-
             // Ensure any open modal is hidden at start
-
             document.getElementById('optionsModal').style.display = 'none';
-
             await startPuzzleGeneration();
-
         });
 
-
-
         async function startPuzzleGeneration() {
-
             const fileInput = document.getElementById('txtFile');
-
             let rows = parseInt(document.getElementById('rows').value);
-
             let cols = parseInt(document.getElementById('cols').value);
-
             let iterations = parseInt(document.getElementById('iterations').value) || 1000;
-
             
-
             const errorMsg = document.getElementById('errorMsg');
-
             const warningMsg = document.getElementById('warningMsg');
-
-
 
             errorMsg.style.display = 'none';
-
             errorMsg.textContent = '';
-
             warningMsg.style.display = 'none';
-
             warningMsg.textContent = '';
 
-
-
             if (!fileInput.files || fileInput.files.length === 0) {
-
                 showError("Please upload a text file.");
-
                 return;
-
             }
-
-
 
             try {
-
                 const text = await fileInput.files[0].text();
-
                 const lines = text.split(/\r?\n/)
-
                                   .map(l => l.trim())
-
                                   .filter(l => l.length > 0);
 
-
-
                 if (lines.length < 2) {
-
                     showError("The text file must contain at least one word and a solution line at the end (minimum 2 lines).");
-
                     return;
-
                 }
-
-
 
                 const solution = lines[lines.length - 1];
-
                 const rawWords = lines.slice(0, lines.length - 1);
-
                 const cleanSolution = solution.replace(/\s+/g, '');
 
-
-
                 const maxDim = Math.max(rows, cols);
-
                 const validWords = [];
-
                 const ignoredWords = [];
 
-
-
                 for (let w of rawWords) {
-
                     const cleanW = w.replace(/\s+/g, '');
-
                     if (cleanW.length > maxDim) {
-
                         ignoredWords.push(w);
-
                     } else {
-
                         validWords.push(w);
-
                     }
-
                 }
-
-
 
                 if (validWords.length === 0) {
-
                     showError("All words are too long to fit in the specified grid size.");
-
                     return;
-
                 }
-
-
 
                 const totalValidWordChars = validWords.reduce((sum, w) => sum + w.replace(/\s+/g, '').length, 0);
-
                 const totalCharactersNeeded = totalValidWordChars + cleanSolution.length;
 
-
-
                 // Auto-reduce grid if too large (alternating columns then rows)
-
                 if ((rows * cols) > totalCharactersNeeded) {
-
                     let reduceColsFirst = true;
 
-
-
                     while ((rows * cols) > totalCharactersNeeded && (rows >= 3 || cols >= 3)) {
-
                         if (reduceColsFirst && cols > 3) {
-
                             cols--;
-
                         } else if (rows > 3) {
-
                             rows--;
-
                         } else if (cols > 3) {
-
                             cols--;
-
                         } else {
-
                             break;
-
                         }
-
                         reduceColsFirst = !reduceColsFirst;
-
                     }
 
-
-
                     document.getElementById('rows').value = rows;
-
                     document.getElementById('cols').value = cols;
-
-
 
                     if ((rows * cols) > totalCharactersNeeded) {
-
                         showError(`Error: Not enough total characters in your words and solution (${totalCharactersNeeded} characters) to fill even a minimum grid (${cols}x${rows} = ${cols * rows} cells). Please add more words.`);
-
                         document.getElementById('outputSection').style.display = 'none';
-
                         return;
-
                     } else {
-
                         showWarning(`Warning: The initial grid size was too large for available characters (${totalCharactersNeeded}). Automatically reduced grid size to ${cols}x${rows}.`);
-
                     }
-
                 } else if ((rows * cols) < cleanSolution.length) {
-
                     showError(`Error: The hidden solution has ${cleanSolution.length} characters, but the ${cols}x${rows} grid only has ${rows * cols} cells.`);
-
                     document.getElementById('outputSection').style.display = 'none';
-
                     return;
-
                 }
-
-
 
                 let bestAttempt = null;
-
                 let keepRunning = true;
 
-
-
                 while (keepRunning) {
-
                     document.getElementById('rows').value = rows;
-
                     document.getElementById('cols').value = cols;
 
-
-
                     let result = runOptimizationPass(rows, cols, validWords, cleanSolution.length, iterations);
-
                     if (!bestAttempt || result.score > bestAttempt.score) {
-
                         bestAttempt = result;
-
                     }
-
-
 
                     // Stop calculations immediately once a valid fit is found
-
                     if (bestAttempt.isPerfectFit || (bestAttempt.placedWords.length === validWords.length && bestAttempt.emptyCount === cleanSolution.length)) {
-
                         closeModalDirectly();
-
                         break;
-
                     }
-
-
 
                     // Interactive Modal popup when iterations fail
-
                     const choice = await showOptionsModal(rows, cols, bestAttempt.placedWords.length, validWords.length);
 
-
-
                     if (choice === 'more') {
-
                         iterations = 1000;
-
                     } else if (choice === 'shrinkRow') {
-
                         if (rows > 3) {
-
                             rows--;
-
                         }
-
                         document.getElementById('rows').value = rows;
-
                         iterations = 1000;
-
                     } else if (choice === 'shrinkCol') {
-
                         if (cols > 3) {
-
                             cols--;
-
                         }
-
                         document.getElementById('cols').value = cols;
-
                         iterations = 1000;
-
                     } else {
-
                         // Stop with incomplete solution
-
                         closeModalDirectly();
-
                         keepRunning = false;
-
                     }
-
                 }
-
-
 
                 let warningTexts = [];
-
                 if (warningMsg.style.display === 'block') {
-
                     warningTexts.push(warningMsg.textContent);
-
                 }
-
                 if (ignoredWords.length > 0) {
-
                     warningTexts.push(`Ignored word(s) too long for grid: ${ignoredWords.join(', ')}.`);
-
                 }
-
                 if (bestAttempt.placedWords.length < validWords.length) {
-
                     warningTexts.push(`Notice: Only ${bestAttempt.placedWords.length} out of ${validWords.length} words could fit.`);
-
                 }
-
-
 
                 if (warningTexts.length > 0) {
-
                     showWarning(warningTexts.join(' '));
-
                 }
-
-
 
                 const grid = bestAttempt.grid;
-
                 let solIndex = 0;
 
-
-
                 // Fill remaining empty grid cells by repeating solution string characters sequentially
-
                 for (let r = 0; r < rows; r++) {
-
                     for (let c = 0; c < cols; c++) {
-
                         if (grid[r][c] === '') {
-
                             grid[r][c] = cleanSolution[solIndex % cleanSolution.length];
-
                             solIndex++;
-
                         }
-
                     }
-
                 }
-
-
 
                 currentSolutionCoords.clear();
-
                 bestAttempt.placedWords.forEach(pw => {
-
                     pw.coords.forEach(coord => currentSolutionCoords.add(`${coord.r},${coord.c}`));
-
                 });
 
-
-
                 const successfullyPlacedWordLabels = bestAttempt.placedWords.map(pw => pw.originalWord);
-
                 renderUI(grid, successfullyPlacedWordLabels, solution);
 
-
-
             } catch (err) {
-
                 closeModalDirectly();
-
                 showError("Error reading file: " + err.message);
-
             }
-
         }
-
-
 
         function showOptionsModal(rows, cols, placedCount, totalCount) {
-
             return new Promise((resolve) => {
-
                 const modal = document.getElementById('optionsModal');
-
                 const modalText = document.getElementById('modalText');
-
                 
-
                 modalText.innerHTML = `Current Grid Size: <b>${cols} columns × ${rows} rows</b><br>` +
-
                                       `Placed Words: <b>${placedCount} of ${totalCount}</b><br>` +
-
                                       `Could not achieve a complete fit after current iterations. What would you like to do?`;
-
                 
-
                 modal.style.display = 'flex';
-
                 modalResolver = resolve;
-
             });
-
         }
-
-
 
         function closeModal(choice) {
-
             closeModalDirectly();
-
             if (modalResolver) {
-
                 modalResolver(choice);
-
                 modalResolver = null;
-
             }
-
         }
-
-
 
         function closeModalDirectly() {
-
             const modal = document.getElementById('optionsModal');
-
             modal.style.display = 'none';
-
         }
-
-
 
         document.getElementById('modalShrinkRowBtn').addEventListener('click', () => closeModal('shrinkRow'));
-
         document.getElementById('modalShrinkColBtn').addEventListener('click', () => closeModal('shrinkCol'));
-
         document.getElementById('modalMoreIterBtn').addEventListener('click', () => closeModal('more'));
-
         document.getElementById('modalStopBtn').addEventListener('click', () => closeModal('stop'));
 
-
-
         function showError(msg) {
-
             const errorMsg = document.getElementById('errorMsg');
-
             errorMsg.textContent = msg;
-
             errorMsg.style.display = 'block';
-
         }
-
-
 
         function showWarning(msg) {
-
             const warningMsg = document.getElementById('warningMsg');
-
             warningMsg.textContent = msg;
-
             warningMsg.style.display = 'block';
-
         }
 
-
-
         function runOptimizationPass(rows, cols, words, targetEmptyCount, maxIterations) {
-
             let bestAttempt = null;
 
-
-
             const sortedWords = words.map((w) => ({ word: w, clean: w.replace(/\s+/g, '') }))
-
                                      .sort((a, b) => b.clean.length - a.clean.length);
 
-
-
             for (let iter = 0; iter < maxIterations; iter++) {
-
                 totalAttemptsCounter++;
-
                 let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
-
                 let placedWords = [];
-
                 
-
                 for (let item of sortedWords) {
-
                     let totalCells = rows * cols;
-
                     let currentFilled = 0;
-
                     for (let r = 0; r < rows; r++) {
-
                         for (let c = 0; c < cols; c++) {
-
                             if (grid[r][c] !== '') currentFilled++;
-
                         }
-
                     }
-
                     let currentEmpty = totalCells - currentFilled;
 
-
-
                     if (currentEmpty - item.clean.length < targetEmptyCount && placedWords.length > 0) {
-
                         continue;
-
                     }
-
-
 
                     let placed = false;
-
                     let attempts = 0;
-
                     while (!placed && attempts < 40) {
-
                         attempts++;
-
                         let startR = Math.floor(Math.random() * rows);
-
                         let startC = Math.floor(Math.random() * cols);
-
                         let dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
 
-
-
                         if (canPlaceWord(grid, item.clean, startR, startC, dir, rows, cols)) {
-
                             let coords = placeWord(grid, item.clean, startR, startC, dir, rows, cols);
-
                             placedWords.push({ originalWord: item.word, cleanWord: item.clean, coords });
-
                             placed = true;
-
                         }
-
                     }
-
                 }
-
-
 
                 let emptyCount = getEmptyCount(grid, rows, cols);
-
                 while (emptyCount < targetEmptyCount && placedWords.length > 0) {
-
                     placedWords.sort((a, b) => a.cleanWord.length - b.cleanWord.length);
-
                     placedWords.shift();
 
-
-
                     grid = Array.from({ length: rows }, () => Array(cols).fill(''));
-
                     for (let pw of placedWords) {
-
                         for (let coord of pw.coords) {
-
                             grid[coord.r][coord.c] = pw.cleanWord[pw.coords.indexOf(coord)].toUpperCase();
-
                         }
-
                     }
-
                     emptyCount = getEmptyCount(grid, rows, cols);
-
                 }
-
-
 
                 let distanceToTarget = Math.abs(emptyCount - targetEmptyCount);
-
                 let score = (placedWords.length * 10000) - (distanceToTarget * 100);
-
                 if (emptyCount === targetEmptyCount) {
-
                     score += 50000;
-
                 }
-
-
 
                 let isPerfectFit = (emptyCount === targetEmptyCount); //&& placedWords.length === sortedWords.length);
 
-
-
                 if (!bestAttempt || score > bestAttempt.score) {
-
                     bestAttempt = { grid, placedWords, emptyCount, score, isPerfectFit };
-
                 }
-
-
 
                 // Stop calculations immediately once a valid fit is found
-
                 if (isPerfectFit) {
-
                     break;
-
                 }
-
             }
-
-
 
             return bestAttempt;
-
         }
-
-
 
         function getEmptyCount(grid, rows, cols) {
-
             let count = 0;
-
             for (let r = 0; r < rows; r++) {
-
                 for (let c = 0; c < cols; c++) {
-
                     if (grid[r][c] === '') count++;
-
                 }
-
             }
-
             return count;
-
         }
-
-
 
         function canPlaceWord(grid, word, startR, startC, dir, rows, cols) {
-
             let r = startR;
-
             let c = startC;
 
-
-
             for (let i = 0; i < word.length; i++) {
-
                 let currentLetter = grid[r][c];
-
                 if (currentLetter !== '' && currentLetter !== word[i].toUpperCase()) {
-
                     return false;
-
                 }
-
                 r = (r + dir.r + rows) % rows;
-
                 c = (c + dir.c + cols) % cols;
-
             }
-
             return true;
-
         }
-
-
 
         function placeWord(grid, word, startR, startC, dir, rows, cols) {
-
             let r = startR;
-
             let c = startC;
-
             let coords = [];
 
-
-
             for (let i = 0; i < word.length; i++) {
-
                 grid[r][c] = word[i].toUpperCase();
-
                 coords.push({ r, c });
-
                 r = (r + dir.r + rows) % rows;
-
                 c = (c + dir.c + cols) % cols;
-
             }
-
             return coords;
-
         }
-
-
 
         function renderUI(grid, words, solution) {
-
             const gridEl = document.getElementById('puzzleGrid');
-
             const wordListEl = document.getElementById('wordList');
-
             const solutionDisplayEl = document.getElementById('solutionDisplay');
-
             const statsDisplayEl = document.getElementById('statsDisplay');
-
             const outputSection = document.getElementById('outputSection');
 
-
-
             const rows = grid.length;
-
             const cols = grid[0].length;
 
-
-
             gridEl.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
-
             gridEl.innerHTML = '';
 
-
-
             for (let r = 0; r < rows; r++) {
-
                 for (let c = 0; c < cols; c++) {
-
                     const cell = document.createElement('div');
-
                     cell.className = 'cell';
-
                     cell.textContent = grid[r][c];
-
                     cell.dataset.row = r;
-
                     cell.dataset.col = c;
-
                     gridEl.appendChild(cell);
-
                 }
-
             }
-
-
 
             wordListEl.innerHTML = '';
-
             words.forEach(w => {
-
                 const li = document.createElement('li');
-
                 li.textContent = w;
-
                 wordListEl.appendChild(li);
-
             });
-
-
 
             solutionDisplayEl.textContent = solution;
-
             statsDisplayEl.textContent = `Total Placement Attempts: ${totalAttemptsCounter}`;
-
             showSolutionState = false;
-
             outputSection.style.display = 'flex';
-
         }
 
-
-
         document.getElementById('toggleSolutionBtn').addEventListener('click', () => {
-
             showSolutionState = !showSolutionState;
-
             const cells = document.querySelectorAll('.cell');
-
             
-
             cells.forEach(cell => {
-
                 const key = `${cell.dataset.row},${cell.dataset.col}`;
-
                 if (showSolutionState && currentSolutionCoords.has(key)) {
-
                     cell.classList.add('highlight');
-
                 } else {
-
                     cell.classList.remove('highlight');
-
                 }
-
             });
 
-
-
             document.getElementById('toggleSolutionBtn').textContent = showSolutionState ? "Hide Solution Highlight" : "Toggle Solution Highlight";
-
         });
-
-
 
         document.getElementById('printBtn').addEventListener('click', () => {
-
             if (showSolutionState) {
-
                 document.getElementById('toggleSolutionBtn').click();
-
             }
-
             window.print();
-
         });
-
     </script>
-
 </body>
-
 </html>
