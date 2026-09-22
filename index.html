@@ -363,6 +363,8 @@
 
         document.getElementById('generateBtn').addEventListener('click', async () => {
             totalAttemptsCounter = 0;
+            // Ensure any open modal is hidden at start
+            document.getElementById('optionsModal').style.display = 'none';
             await startPuzzleGeneration();
         });
 
@@ -421,7 +423,7 @@
                 const totalValidWordChars = validWords.reduce((sum, w) => sum + w.replace(/\s+/g, '').length, 0);
                 const totalCharactersNeeded = totalValidWordChars + cleanSolution.length;
 
-                // Rule 2: Auto-reduce grid if too large (alternating columns then rows)
+                // Auto-reduce grid if too large (alternating columns then rows)
                 if ((rows * cols) > totalCharactersNeeded) {
                     let reduceColsFirst = true;
 
@@ -466,12 +468,13 @@
                         bestAttempt = result;
                     }
 
-                    // Rule 4: Stop calculations immediately once a valid fit is found
+                    // Stop calculations immediately once a valid fit is found
                     if (bestAttempt.isPerfectFit || (bestAttempt.placedWords.length === validWords.length && bestAttempt.emptyCount === cleanSolution.length)) {
+                        closeModalDirectly();
                         break;
                     }
 
-                    // Rule 5: Interactive Modal popup when iterations fail
+                    // Interactive Modal popup when iterations fail
                     const choice = await showOptionsModal(rows, cols, bestAttempt.placedWords.length, validWords.length);
 
                     if (choice === 'more') {
@@ -490,6 +493,7 @@
                         iterations = 1000;
                     } else {
                         // Stop with incomplete solution
+                        closeModalDirectly();
                         keepRunning = false;
                     }
                 }
@@ -512,7 +516,7 @@
                 const grid = bestAttempt.grid;
                 let solIndex = 0;
 
-                // Rule 5 & 9: Fill remaining empty grid cells by repeating solution string characters sequentially
+                // Fill remaining empty grid cells by repeating solution string characters sequentially
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
                         if (grid[r][c] === '') {
@@ -531,6 +535,7 @@
                 renderUI(grid, successfullyPlacedWordLabels, solution);
 
             } catch (err) {
+                closeModalDirectly();
                 showError("Error reading file: " + err.message);
             }
         }
@@ -550,12 +555,16 @@
         }
 
         function closeModal(choice) {
-            const modal = document.getElementById('optionsModal');
-            modal.style.display = 'none'; // Close popup immediately
+            closeModalDirectly();
             if (modalResolver) {
                 modalResolver(choice);
                 modalResolver = null;
             }
+        }
+
+        function closeModalDirectly() {
+            const modal = document.getElementById('optionsModal');
+            modal.style.display = 'none';
         }
 
         document.getElementById('modalShrinkRowBtn').addEventListener('click', () => closeModal('shrinkRow'));
