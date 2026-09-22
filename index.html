@@ -364,9 +364,9 @@
                     break;
                 }
 
-                const userWantsMore = confirm(`Not all solution space constraints matched cleanly (${bestAttempt.placedWords.length} of ${validWords.length} words placed, ${bestAttempt.emptyCount} empty cells vs ${cleanSolution.length} solution length). Would you like to try 10 more iterations?`);
+                const userWantsMore = confirm(`Not all solution space constraints matched cleanly (${bestAttempt.placedWords.length} of ${validWords.length} words placed, ${bestAttempt.emptyCount} empty cells vs ${cleanSolution.length} solution length). Would you like to try 100 more iterations?`);
                 if (userWantsMore) {
-                    iterations = 10;
+                    iterations = 100;
                 } else {
                     runMore = false;
                 }
