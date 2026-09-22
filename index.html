@@ -645,7 +645,7 @@
                     score += 50000;
                 }
 
-                let isPerfectFit = (emptyCount === targetEmptyCount && placedWords.length === sortedWords.length);
+                let isPerfectFit = (emptyCount === targetEmptyCount); //&& placedWords.length === sortedWords.length);
 
                 if (!bestAttempt || score > bestAttempt.score) {
                     bestAttempt = { grid, placedWords, emptyCount, score, isPerfectFit };
