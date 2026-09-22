@@ -7,66 +7,133 @@ function printPuzzle() {
         return;
     }
 
-    // Verzamel woorden en zet ze om naar hoofdletters
+    // 1. Verzamel alle woorden en zet ze om naar hoofdletters
     const rawWords = window.currentWordList || Array.from(document.querySelectorAll('#word-list-container .word-tag')).map(el => el.textContent.trim());
-    const allWordsList = rawWords.map(w => w.toUpperCase());
+    const allWordsList = rawWords.map(w => w.toUpperCase()).sort();
 
+    // 2. Haal het grid op en zorg dat alle letters hoofdletters worden
     const puzzleGrid = document.getElementById('puzzleGrid');
-    const gridHtml = puzzleGrid ? puzzleGrid.innerHTML : '<p>Puzzel grid niet gevonden</p>';
+    let gridContent = '';
+    
+    if (puzzleGrid) {
+        // Kloon het grid zodat we de hoofdpagina niet aanpassen
+        const clone = puzzleGrid.cloneNode(true);
+        // Forceer alle cellen naar hoofdletters
+        clone.querySelectorAll('*').forEach(el => {
+            if (el.children.length === 0 && el.textContent.trim().length > 0) {
+                el.textContent = el.textContent.trim().toUpperCase();
+            }
+        });
+        gridContent = clone.innerHTML;
+    } else {
+        gridContent = '<p>Puzzel grid niet gevonden</p>';
+    }
 
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
             <title>Toroidal Word Search Puzzle</title>
-            <script src="https://cdn.tailwindcss.com"><\/script>
             <style>
-                /* Vaste fallback-stijlen zodat het grid altijd netjes in rijen staat */
-                .print-grid-wrapper {
+                body {
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    padding: 20px;
+                    color: #000;
+                    background: #fff;
+                    margin: 0;
+                }
+                h1 {
+                    font-size: 22px;
+                    margin-bottom: 2px;
+                }
+                .subtitle {
+                    font-size: 13px;
+                    color: #555;
+                    margin-bottom: 15px;
+                }
+                /* Robuuste grid opmaak gebaseerd op inline-blocks / tables om inklappen te voorkomen */
+                .print-grid-container {
                     display: inline-block;
                     border: 2px solid #000;
                     padding: 4px;
                     background: #fff;
+                    margin-bottom: 25px;
                 }
+                /* Zorg dat rijen netjes naast elkaar blijven in flex of block */
+                .print-grid-container div, 
+                .print-grid-container span {
+                    box-sizing: border-box;
+                }
+                /* Stijlen voor de cellen */
                 .grid-row {
                     display: flex !important;
+                    flex-direction: row !important;
                 }
                 .grid-cell {
-                    width: 28px;
-                    height: 28px;
-                    display: flex !important;
-                    align-items: center;
+                    width: 26px !important;
+                    height: 26px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    font-family: 'Courier New', Courier, monospace !important;
+                    font-size: 15px !important;
+                    font-weight: bold !important;
+                    border: 1px solid #bbb !important;
+                    background: #fff !important;
+                    color: #000 !important;
+                }
+                /* Woordenlijst sectie */
+                .word-list-section {
+                    max-width: 650px;
+                    margin: 0 auto;
+                    border-top: 1px solid #ccc;
+                    padding-top: 15px;
+                    text-align: left;
+                }
+                .word-list-section h3 {
+                    font-size: 15px;
+                    margin-bottom: 10px;
+                    text-align: center;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                .words-grid {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px 16px;
                     justify-content: center;
-                    font-family: monospace;
-                    font-size: 16px;
-                    font-weight: bold;
-                    border: 1px solid #ccc;
-                    text-transform: uppercase; /* Forceer alle letters in het grid naar hoofdletters */
+                }
+                .word-item {
+                    font-family: 'Courier New', Courier, monospace;
+                    font-size: 13px;
+                    min-width: 110px;
+                    text-transform: uppercase;
                 }
                 @media print {
                     body {
-                        padding: 0 !important;
+                        padding: 0;
                     }
                     button {
-                        display: none !important;
+                        display: none;
                     }
                 }
             </style>
         </head>
-        <body class="p-6 bg-white text-black flex flex-col items-center">
-            <h1 class="text-2xl font-bold mb-1">Word Search Puzzle</h1>
-            <div class="text-sm text-gray-500 mb-6">Toroidal Grid</div>
+        <body>
+            <h1>Word Search Puzzle</h1>
+            <div class="subtitle">Toroidal Grid</div>
             
-            <div class="mb-8 flex justify-center">
-                <div class="print-grid-wrapper">
-                    ${gridHtml}
+            <div>
+                <div class="print-grid-container">
+                    ${gridContent}
                 </div>
             </div>
 
-            <div class="max-w-3xl w-full border-t border-gray-300 pt-4">
-                <h3 class="font-bold text-base mb-3 text-center">Words to Find</h3>
-                <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center">
-                    ${allWordsList.map(word => `<div class="font-mono text-sm uppercase">• ${word}</div>`).join('')}
+            <div class="word-list-section">
+                <h3>Words to Find (${allWordsList.length})</h3>
+                <div class="words-grid">
+                    ${allWordsList.map(word => `<div class="word-item">• ${word}</div>`).join('')}
                 </div>
             </div>
 
@@ -74,7 +141,7 @@ function printPuzzle() {
                 window.onload = function() {
                     setTimeout(() => {
                         window.print();
-                    }, 250);
+                    }, 300);
                 };
             <\/script>
         </body>
