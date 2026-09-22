@@ -171,6 +171,16 @@
             display: none;
         }
 
+        .warning {
+            color: #b45309;
+            background: #fef3c7;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: center;
+            display: none;
+        }
+
         .action-buttons {
             display: flex;
             gap: 10px;
@@ -189,7 +199,7 @@
                 background: white;
                 padding: 0;
             }
-            .controls, .error, .action-buttons, #solutionPanel {
+            .controls, .error, .warning, .action-buttons, #solutionPanel {
                 display: none !important;
             }
             .container {
@@ -216,6 +226,7 @@
     <h1>Toroidal Word Search Generator</h1>
     
     <div id="errorMsg" class="error"></div>
+    <div id="warningMsg" class="warning"></div>
 
     <div class="controls">
         <div class="control-group">
@@ -229,6 +240,10 @@
         <div class="control-group">
             <label for="rows">Grid Height (Rows - m):</label>
             <input type="number" id="rows" value="12" min="5" max="40">
+        </div>
+        <div class="control-group">
+            <label for="iterations">Optimization Iterations:</label>
+            <input type="number" id="iterations" value="10" min="1" max="100">
         </div>
         <button id="generateBtn">Generate Puzzle</button>
     </div>
@@ -272,10 +287,15 @@
         const fileInput = document.getElementById('txtFile');
         const rows = parseInt(document.getElementById('rows').value);
         const cols = parseInt(document.getElementById('cols').value);
+        const iterations = parseInt(document.getElementById('iterations').value) || 10;
+        
         const errorMsg = document.getElementById('errorMsg');
+        const warningMsg = document.getElementById('warningMsg');
 
         errorMsg.style.display = 'none';
         errorMsg.textContent = '';
+        warningMsg.style.display = 'none';
+        warningMsg.textContent = '';
 
         if (!fileInput.files || fileInput.files.length === 0) {
             showError("Please upload a text file.");
@@ -298,22 +318,14 @@
 
             // Validate word lengths against grid size
             for (let w of words) {
-                if (w.length > Math.max(rows, cols)) {
+                const cleanW = w.replace(/\s+/g, '');
+                if (cleanW.length > Math.max(rows, cols)) {
                     showError(`Word "${w}" is longer than the maximum grid dimension (${Math.max(rows, cols)}).`);
                     return;
                 }
             }
 
-            // Check if there are enough words/letters to fill/suit the puzzle matrix
-            const totalGridCells = rows * cols;
-            const totalWordLetters = words.reduce((sum, w) => sum.replace(/\s+/g, '').length, 0);
-            
-            if (totalWordLetters < Math.floor(totalGridCells * 0.25)) {
-                showError(`Warning: Total letters in your words (${totalWordLetters}) might be too few to nicely populate a ${cols}x${rows} (${totalGridCells} cells) grid. Consider adding more words or decreasing the grid size.`);
-                // We let it continue even with the warning, or you can block it if strict. Let's make it a warning message that still permits generation or let them adjust.
-            }
-
-            generatePuzzle(rows, cols, words, solution);
+            generateOptimalPuzzle(rows, cols, words, solution, iterations);
 
         } catch (err) {
             showError("Error reading file: " + err.message);
@@ -326,41 +338,45 @@
         errorMsg.style.display = 'block';
     }
 
+    function showWarning(msg) {
+        const warningMsg = document.getElementById('warningMsg');
+        warningMsg.textContent = msg;
+        warningMsg.style.display = 'block';
+    }
+
     let currentSolutionCoords = new Set();
     let showSolutionState = false;
 
-    function generatePuzzle(rows, cols, words, solution) {
-        let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
-        let placedWords = [];
-        currentSolutionCoords.clear();
+    function generateOptimalPuzzle(rows, cols, words, solution, maxIterations) {
+        let bestAttempt = null;
+        let maxPlacedCount = -1;
 
-        const sortedWords = [...words].sort((a, b) => b.length - a.length);
-
-        for (let word of sortedWords) {
-            let placed = false;
-            let attempts = 0;
-            const cleanWord = word.replace(/\s+/g, ''); // ignore spaces inside words if any
-
-            while (!placed && attempts < 200) {
-                attempts++;
-                let startR = Math.floor(Math.random() * rows);
-                let startC = Math.floor(Math.random() * cols);
-                let dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
-
-                if (canPlaceWord(grid, cleanWord, startR, startC, dir, rows, cols)) {
-                    let coords = placeWord(grid, cleanWord, startR, startC, dir, rows, cols);
-                    placedWords.push({ word: cleanWord, coords });
-                    placed = true;
-                }
+        // Run multiple iterations to find the optimum placement fit
+        for (let iter = 0; iter < maxIterations; iter++) {
+            let result = tryPlaceAllWords(rows, cols, words);
+            if (result.placedWords.length > maxPlacedCount) {
+                maxPlacedCount = result.placedWords.length;
+                bestAttempt = result;
             }
-
-            if (!placed) {
-                showError(`Could not place all words into the ${rows}x${cols} grid. Try increasing the grid size or shortening words.`);
-                document.getElementById('outputSection').style.display = 'none';
-                return;
+            // If all words successfully fit, we can exit early
+            if (maxPlacedCount === words.length) {
+                break;
             }
         }
 
+        if (!bestAttempt || bestAttempt.placedWords.length === 0) {
+            showError(`Could not place any words into the ${rows}x${cols} grid.`);
+            document.getElementById('outputSection').style.display = 'none';
+            return;
+        }
+
+        if (bestAttempt.placedWords.length < words.length) {
+            const missingCount = words.length - bestAttempt.placedWords.length;
+            showWarning(`Notice: Only ${bestAttempt.placedWords.length} out of ${words.length} words could fit. The puzzle was generated using the optimum fit found across ${maxIterations} iteration(s).`);
+        }
+
+        // Fill remaining empty cells with random letters
+        const grid = bestAttempt.grid;
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -370,11 +386,45 @@
             }
         }
 
-        placedWords.forEach(pw => {
+        currentSolutionCoords.clear();
+        bestAttempt.placedWords.forEach(pw => {
             pw.coords.forEach(coord => currentSolutionCoords.add(`${coord.r},${coord.c}`));
         });
 
-        renderUI(grid, words, solution);
+        // Use the list of successfully placed words for the UI
+        const successfullyPlacedWordLabels = bestAttempt.placedWords.map(pw => pw.originalWord);
+
+        renderUI(grid, successfullyPlacedWordLabels, solution);
+    }
+
+    function tryPlaceAllWords(rows, cols, words) {
+        let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
+        let placedWords = [];
+
+        // Sort words by length descending to prioritize longer words
+        const sortedIndices = words.map((w, idx) => ({ word: w, clean: w.replace(/\s+/g, ''), idx }))
+                                   .sort((a, b) => b.clean.length - a.clean.length);
+
+        for (let item of sortedIndices) {
+            let word = item.clean;
+            let placed = false;
+            let attempts = 0;
+
+            while (!placed && attempts < 100) {
+                attempts++;
+                let startR = Math.floor(Math.random() * rows);
+                let startC = Math.floor(Math.random() * cols);
+                let dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
+
+                if (canPlaceWord(grid, word, startR, startC, dir, rows, cols)) {
+                    let coords = placeWord(grid, word, startR, startC, dir, rows, cols);
+                    placedWords.push({ originalWord: item.word, cleanWord: word, coords });
+                    placed = true;
+                }
+            }
+        }
+
+        return { grid, placedWords };
     }
 
     function canPlaceWord(grid, word, startR, startC, dir, rows, cols) {
@@ -458,7 +508,6 @@
     });
 
     document.getElementById('printBtn').addEventListener('click', () => {
-        // Ensure solution highlights are turned off before printing
         if (showSolutionState) {
             document.getElementById('toggleSolutionBtn').click();
         }
