@@ -300,7 +300,7 @@
             </div>
             <div class="control-group">
                 <label for="iterations">Optimization Iterations:</label>
-                <input type="number" id="iterations" value="100" min="1" max="500">
+                <input type="number" id="iterations" value="1000" min="1" max="10000">
             </div>
             <button id="generateBtn">Generate Puzzle</button>
         </div>
@@ -336,9 +336,9 @@
             <h3>Iteration Limit Reached</h3>
             <p id="modalText" style="margin-bottom: 15px; color: #475569; font-size: 0.95rem;"></p>
             <div class="modal-buttons">
-                <button id="modalShrinkRowBtn" style="background-color: #d97706;">Shrink Row (Height - 1)</button>
-                <button id="modalShrinkColBtn" style="background-color: #d97706;">Shrink Column (Width - 1)</button>
-                <button id="modalMoreIterBtn" style="background-color: #4f46e5;">Try 100 More Iterations</button>
+                <button id="modalShrinkRowBtn" style="background-color: #d97706;">Shrink by 1 Row</button>
+                <button id="modalShrinkColBtn" style="background-color: #d97706;">Shrink by 1 Column</button>
+                <button id="modalMoreIterBtn" style="background-color: #4f46e5;">Try 1000 More Iterations</button>
                 <button id="modalStopBtn" style="background-color: #dc2626;">Stop with Incomplete Solution</button>
             </div>
         </div>
@@ -370,7 +370,7 @@
             const fileInput = document.getElementById('txtFile');
             let rows = parseInt(document.getElementById('rows').value);
             let cols = parseInt(document.getElementById('cols').value);
-            let iterations = parseInt(document.getElementById('iterations').value) || 100;
+            let iterations = parseInt(document.getElementById('iterations').value) || 1000;
             
             const errorMsg = document.getElementById('errorMsg');
             const warningMsg = document.getElementById('warningMsg');
@@ -421,7 +421,7 @@
                 const totalValidWordChars = validWords.reduce((sum, w) => sum + w.replace(/\s+/g, '').length, 0);
                 const totalCharactersNeeded = totalValidWordChars + cleanSolution.length;
 
-                // Rule 3: Auto-reduce grid if too large
+                // Rule 2: Auto-reduce grid if too large (alternating columns then rows)
                 if ((rows * cols) > totalCharactersNeeded) {
                     let reduceColsFirst = true;
 
@@ -466,28 +466,28 @@
                         bestAttempt = result;
                     }
 
-                    // Rule 7: Stop calculations immediately once a valid fit is found (even if words are left out or all words are placed)
+                    // Rule 4: Stop calculations immediately once a valid fit is found
                     if (bestAttempt.isPerfectFit || (bestAttempt.placedWords.length === validWords.length && bestAttempt.emptyCount === cleanSolution.length)) {
                         break;
                     }
 
-                    // Rule 8: Interactive Modal popup when iterations fail to achieve a complete fit
+                    // Rule 5: Interactive Modal popup when iterations fail
                     const choice = await showOptionsModal(rows, cols, bestAttempt.placedWords.length, validWords.length);
 
                     if (choice === 'more') {
-                        iterations = 100;
+                        iterations = 1000;
                     } else if (choice === 'shrinkRow') {
                         if (rows > 3) {
                             rows--;
                         }
                         document.getElementById('rows').value = rows;
-                        iterations = 100;
+                        iterations = 1000;
                     } else if (choice === 'shrinkCol') {
                         if (cols > 3) {
                             cols--;
                         }
                         document.getElementById('cols').value = cols;
-                        iterations = 100;
+                        iterations = 1000;
                     } else {
                         // Stop with incomplete solution
                         keepRunning = false;
@@ -512,7 +512,7 @@
                 const grid = bestAttempt.grid;
                 let solIndex = 0;
 
-                // Rule 9: Fill remaining empty grid cells by repeating solution string characters sequentially
+                // Rule 5 & 9: Fill remaining empty grid cells by repeating solution string characters sequentially
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
                         if (grid[r][c] === '') {
@@ -551,7 +551,7 @@
 
         function closeModal(choice) {
             const modal = document.getElementById('optionsModal');
-            modal.style.display = 'none';
+            modal.style.display = 'none'; // Close popup immediately
             if (modalResolver) {
                 modalResolver(choice);
                 modalResolver = null;
