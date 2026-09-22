@@ -199,6 +199,50 @@
             flex: 1;
         }
 
+        /* Custom Interactive Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            grid-column: auto;
+            width: 100%;
+            padding: 10px;
+            font-size: 0.95rem;
+        }
+
         @media print {
             body {
                 background: white;
@@ -248,7 +292,7 @@
             </div>
             <div class="control-group">
                 <label for="iterations">Optimization Iterations:</label>
-                <input type="number" id="iterations" value="100" min="1" max="1000">
+                <input type="number" id="iterations" value="100" min="1" max="500">
             </div>
             <button id="generateBtn">Generate Puzzle</button>
         </div>
@@ -276,6 +320,20 @@
         </div>
     </div>
 
+    <!-- Interactive Modal for Unresolved Iteration / Grid Options -->
+    <div id="optionsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Iteration Limit Reached</h3>
+            <p id="modalText" style="margin-bottom: 15px; color: #475569; font-size: 0.95rem;"></p>
+            <div class="modal-buttons">
+                <button id="modalShrinkRowBtn" style="background-color: #d97706;">Shrink Row (Height - 1)</button>
+                <button id="modalShrinkColBtn" style="background-color: #d97706;">Shrink Column (Width - 1)</button>
+                <button id="modalMoreIterBtn" style="background-color: #4f46e5;">Try 100 More Iterations</button>
+                <button id="modalStopBtn" style="background-color: #dc2626;">Stop with Incomplete Solution</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const DIRECTIONS = [
             {r: 0, c: 1},   // Right
@@ -285,15 +343,20 @@
             {r: 1, c: 1},   // Diagonal Down-Right
             {r: 1, c: -1},  // Diagonal Down-Left
             {r: -1, c: 1},  // Diagonal Up-Right
-            {r: -1, c: -1} // Diagonal Up-Left (handled properly below)
+            {r: -1, c: -1}  // Diagonal Up-Left
         ];
-        // Correcting diagonal up-left key reference:
-        DIRECTIONS[7] = {r: -1, c: -1};
 
         let currentSolutionCoords = new Set();
         let showSolutionState = false;
 
+        // Global promise resolver for user modal choices
+        let modalResolver = null;
+
         document.getElementById('generateBtn').addEventListener('click', async () => {
+            await startPuzzleGeneration();
+        });
+
+        async function startPuzzleGeneration() {
             const fileInput = document.getElementById('txtFile');
             let rows = parseInt(document.getElementById('rows').value);
             let cols = parseInt(document.getElementById('cols').value);
@@ -327,7 +390,6 @@
                 const rawWords = lines.slice(0, lines.length - 1);
                 const cleanSolution = solution.replace(/\s+/g, '');
 
-                // Filter valid vs too long words
                 const maxDim = Math.max(rows, cols);
                 const validWords = [];
                 const ignoredWords = [];
@@ -346,34 +408,26 @@
                     return;
                 }
 
-                // Check total available characters
                 const totalValidWordChars = validWords.reduce((sum, w) => sum + w.replace(/\s+/g, '').length, 0);
                 const totalCharactersNeeded = totalValidWordChars + cleanSolution.length;
 
-                // Check if not enough characters in total to fill grid
+                // Check if grid is initially too large and auto-reduce
                 if ((rows * cols) > totalCharactersNeeded) {
-                    // Grid size is too large! Automatically reduce grid size step by step:
-                    // removing 1 column, then 1 row, then 1 column, and so on until grid cells <= totalCharactersNeeded
-                    let reductionSteps = [];
                     let reduceColsFirst = true;
 
                     while ((rows * cols) > totalCharactersNeeded && (rows >= 3 || cols >= 3)) {
                         if (reduceColsFirst && cols > 3) {
                             cols--;
-                            reductionSteps.push("column");
                         } else if (rows > 3) {
                             rows--;
-                            reductionSteps.push("row");
                         } else if (cols > 3) {
                             cols--;
-                            reductionSteps.push("column");
                         } else {
                             break;
                         }
                         reduceColsFirst = !reduceColsFirst;
                     }
 
-                    // Update input fields to show adjusted dimensions
                     document.getElementById('rows').value = rows;
                     document.getElementById('cols').value = cols;
 
@@ -382,7 +436,7 @@
                         document.getElementById('outputSection').style.display = 'none';
                         return;
                     } else {
-                        showWarning(`Warning: The initial grid size was too large for the available characters (${totalCharactersNeeded}). Automatically reduced grid size to ${cols}x${rows}.`);
+                        showWarning(`Warning: The initial grid size was too large for available characters (${totalCharactersNeeded}). Automatically reduced grid size to ${cols}x${rows}.`);
                     }
                 } else if ((rows * cols) < cleanSolution.length) {
                     showError(`Error: The hidden solution has ${cleanSolution.length} characters, but the ${cols}x${rows} grid only has ${rows * cols} cells.`);
@@ -391,24 +445,39 @@
                 }
 
                 let bestAttempt = null;
-                let runMore = true;
+                let keepRunning = true;
 
-                while (runMore) {
+                while (keepRunning) {
                     let result = runOptimizationPass(rows, cols, validWords, cleanSolution.length, iterations);
                     if (!bestAttempt || result.score > bestAttempt.score) {
                         bestAttempt = result;
                     }
 
-                    // Stop immediately if all words placed and exact empty count matches solution length
+                    // Perfect fit found!
                     if (bestAttempt.placedWords.length === validWords.length && bestAttempt.emptyCount === cleanSolution.length) {
                         break;
                     }
 
-                    const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try more iterations?`);
-                    if (userWantsMore) {
+                    // Open interactive modal asking user what to do after 100 iterations fail to find perfect fit
+                    const choice = await showOptionsModal(rows, cols, bestAttempt.placedWords.length, validWords.length);
+
+                    if (choice === 'more') {
+                        iterations = 100; // Reset or continue with 100 more
+                    } else if (choice === 'shrinkRow') {
+                        if (rows > 3) {
+                            rows--;
+                            document.getElementById('rows').value = rows;
+                        }
+                        iterations = 100;
+                    } else if (choice === 'shrinkCol') {
+                        if (cols > 3) {
+                            cols--;
+                            document.getElementById('cols').value = cols;
+                        }
                         iterations = 100;
                     } else {
-                        runMore = false;
+                        // Stop with incomplete solution
+                        keepRunning = false;
                     }
                 }
 
@@ -427,7 +496,6 @@
                     showWarning(warningTexts.join(' '));
                 }
 
-                // Fill remaining empty cells with solution characters
                 const grid = bestAttempt.grid;
                 let solIndex = 0;
 
@@ -451,7 +519,35 @@
             } catch (err) {
                 showError("Error reading file: " + err.message);
             }
-        });
+        }
+
+        function showOptionsModal(rows, cols, placedCount, totalCount) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('optionsModal');
+                const modalText = document.getElementById('modalText');
+                
+                modalText.innerHTML = `Current Grid Size: <b>${cols} columns × ${rows} rows</b><br>` +
+                                      `Placed Words: <b>${placedCount} of ${totalCount}</b><br>` +
+                                      `Could not achieve a perfect fit after 100 iterations. What would you like to do?`;
+                
+                modal.style.display = 'flex';
+                modalResolver = resolve;
+            });
+        }
+
+        function closeModal(choice) {
+            const modal = document.getElementById('optionsModal');
+            modal.style.display = 'none';
+            if (modalResolver) {
+                modalResolver(choice);
+                modalResolver = null;
+            }
+        }
+
+        document.getElementById('modalShrinkRowBtn').addEventListener('click', () => closeModal('shrinkRow'));
+        document.getElementById('modalShrinkColBtn').addEventListener('click', () => closeModal('shrinkCol'));
+        document.getElementById('modalMoreIterBtn').addEventListener('click', () => closeModal('more'));
+        document.getElementById('modalStopBtn').addEventListener('click', () => closeModal('stop'));
 
         function showError(msg) {
             const errorMsg = document.getElementById('errorMsg');
@@ -505,11 +601,10 @@
                     }
                 }
 
-                let emptyCount = getEmptyCount(grid);
-                // If remaining empty cells are fewer than target empty count, remove already placed words to make room
+                let emptyCount = getEmptyCount(grid, rows, cols);
                 while (emptyCount < targetEmptyCount && placedWords.length > 0) {
                     placedWords.sort((a, b) => a.cleanWord.length - b.cleanWord.length);
-                    let removedWord = placedWords.shift();
+                    placedWords.shift();
 
                     grid = Array.from({ length: rows }, () => Array(cols).fill(''));
                     for (let pw of placedWords) {
@@ -517,7 +612,7 @@
                             grid[coord.r][coord.c] = pw.cleanWord[pw.coords.indexOf(coord)].toUpperCase();
                         }
                     }
-                    emptyCount = getEmptyCount(grid);
+                    emptyCount = getEmptyCount(grid, rows, cols);
                 }
 
                 let distanceToTarget = Math.abs(emptyCount - targetEmptyCount);
@@ -538,11 +633,11 @@
             return bestAttempt;
         }
 
-        function getEmptyCount(grid) {
+        function getEmptyCount(grid, rows, cols) {
             let count = 0;
-            for (let r = 0; r < grid.length; r++) {
-                for (let c = 0; c < grid[0].length; c++) {
-                    if (grid[0] && grid[r][c] === '') count++;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (grid[r][c] === '') count++;
                 }
             }
             return count;
