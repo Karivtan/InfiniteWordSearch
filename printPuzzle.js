@@ -11,7 +11,7 @@ function printPuzzle() {
     const rawWords = window.currentWordList || Array.from(document.querySelectorAll('#word-list-container .word-tag')).map(el => el.textContent.trim());
     const allWordsList = rawWords.map(w => w.toUpperCase());
 
-    const puzzleGrid = document.getElementById('puzzle-grid');
+    const puzzleGrid = document.getElementById('puzzleGrid');
     const gridHtml = puzzleGrid ? puzzleGrid.innerHTML : '<p>Puzzel grid niet gevonden</p>';
 
     printWindow.document.write(`
