@@ -1,6 +1,6 @@
 function printPuzzle() {
     console.log("printPuzzle() functie wordt uitgevoerd...");
-    
+    // version 0.1
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
         alert("Het printvenster is geblokkeerd door je browser. Sta pop-ups toe.");
