@@ -84,7 +84,7 @@ function printPuzzle() {
             <div class="subtitle">Toroidal Grid</div>
             
             <div class="grid-container">
-                ${document.getElementById('puzzle-grid').innerHTML}
+                ${document.getElementById('puzzleGrid').innerHTML}
             </div>
 
             <div class="word-list-section">
