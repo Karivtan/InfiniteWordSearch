@@ -348,8 +348,6 @@
 
         let currentSolutionCoords = new Set();
         let showSolutionState = false;
-
-        // Global promise resolver for user modal choices
         let modalResolver = null;
 
         document.getElementById('generateBtn').addEventListener('click', async () => {
@@ -448,6 +446,10 @@
                 let keepRunning = true;
 
                 while (keepRunning) {
+                    // Update input fields visually to current dimensions
+                    document.getElementById('rows').value = rows;
+                    document.getElementById('cols').value = cols;
+
                     let result = runOptimizationPass(rows, cols, validWords, cleanSolution.length, iterations);
                     if (!bestAttempt || result.score > bestAttempt.score) {
                         bestAttempt = result;
@@ -458,23 +460,21 @@
                         break;
                     }
 
-                    // Open interactive modal asking user what to do after 100 iterations fail to find perfect fit
+                    // Open interactive modal asking user what to do after iterations fail to find perfect fit
                     const choice = await showOptionsModal(rows, cols, bestAttempt.placedWords.length, validWords.length);
 
                     if (choice === 'more') {
-                        iterations = 100; // Reset or continue with 100 more
+                        iterations = 100; // Recalculate with 100 more iterations
                     } else if (choice === 'shrinkRow') {
                         if (rows > 3) {
                             rows--;
-                            document.getElementById('rows').value = rows;
                         }
-                        iterations = 100;
+                        iterations = 100; // Recalculate with new row count
                     } else if (choice === 'shrinkCol') {
                         if (cols > 3) {
                             cols--;
-                            document.getElementById('cols').value = cols;
                         }
-                        iterations = 100;
+                        iterations = 100; // Recalculate with new col count
                     } else {
                         // Stop with incomplete solution
                         keepRunning = false;
@@ -528,7 +528,7 @@
                 
                 modalText.innerHTML = `Current Grid Size: <b>${cols} columns × ${rows} rows</b><br>` +
                                       `Placed Words: <b>${placedCount} of ${totalCount}</b><br>` +
-                                      `Could not achieve a perfect fit after 100 iterations. What would you like to do?`;
+                                      `Could not achieve a perfect fit after current iterations. What would you like to do?`;
                 
                 modal.style.display = 'flex';
                 modalResolver = resolve;
