@@ -395,10 +395,7 @@
             const totalSolutionChars = cleanSolution.length;
 
             const validWords = [];
-            const ignoredWords = [];
-
             for (let w of rawWords) {
-                const cleanW = w.replace(/\s+/g, '');
                 validWords.push(w);
             }
 
@@ -407,20 +404,11 @@
                 return;
             }
 
-            // Calculate total characters required (sum of all valid word characters + solution characters)
             let totalWordChars = validWords.reduce((sum, w) => sum + w.replace(/\s+/g, '').length, 0);
             let totalRequiredChars = totalWordChars + totalSolutionChars;
 
-            // Auto-shrink grid if too large for total required characters
             let autoShrank = false;
             let shrinkMsgParts = [];
-
-            let maxDim = Math.max(rows, cols);
-            for (let w of validWords) {
-                if (w.replace(/\s+/g, '').length > maxDim) {
-                    ignoredWords.push(w);
-                }
-            }
 
             while ((rows * cols) < totalRequiredChars) {
                 autoShrank = true;
@@ -441,7 +429,6 @@
                 showWarning(`Grid was too large for total characters. Automatically shrunk grid (${shrinkMsgParts.join(', ')}) to ${cols}x${rows}.`);
             }
 
-            // Check if not enough words in document to fill grid
             let totalCells = rows * cols;
             if (totalCells > totalRequiredChars) {
                 showError(`Error: Not enough characters in the document. Total cells (${totalCells}) exceeds total word and solution characters (${totalRequiredChars}). Please add more words to fill the grid.`);
@@ -449,7 +436,6 @@
                 return;
             }
 
-            // Optimization loop with interactive modal support
             let bestAttempt = null;
             let successFound = false;
 
@@ -461,14 +447,12 @@
                     bestAttempt = result;
                 }
 
-                // Check if perfect fit (all words placed and perfectFit === 0)
-                if (bestAttempt.placedWords.length === validWords.length && bestAttempt.perfectFit === 0) {
+                if (bestAttempt && bestAttempt.placedWords.length === validWords.length && bestAttempt.perfectFit === 0) {
                     successFound = true;
                     break;
                 }
 
-                // If not successful, prompt user via interactive modal
-                const userChoice = await showModalPopup(rows, cols, bestAttempt.placedWords.length, validWords.length);
+                const userChoice = await showModalPopup(rows, cols, bestAttempt ? bestAttempt.placedWords.length : 0, validWords.length);
                 
                 if (userChoice === 'more') {
                     iterations = 1000;
@@ -487,14 +471,16 @@
                     }
                     iterations = 1000;
                     continue;
-                } else if (userChoice === 'stop') {
-                    break; // Stop with incomplete solution
                 } else {
                     break;
                 }
             }
 
-            // Finalize grid rendering
+            if (!bestAttempt) {
+                showError("Unable to generate puzzle configuration.");
+                return;
+            }
+
             const grid = bestAttempt.grid;
             let solIndex = 0;
 
@@ -547,7 +533,6 @@
             attemptsMade++;
             let result = tryPlaceAllWords(rows, cols, words);
             
-            // Calculate empty cells remaining
             let emptyCount = 0;
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
@@ -555,20 +540,29 @@
                 }
             }
 
-            // perfectFit = 0 means 0 spaces left / exact match with solution length
             let perfectFit = emptyCount - cleanSolution.length;
             let wordCount = result.placedWords.length;
-
-            // Scoring: heavily prioritize placing all words, then minimize perfectFit divergence (absolute distance to 0)
             let score = (wordCount * 100000) - Math.abs(perfectFit);
 
-            if (!bestAttempt || score > bestAttempt.score) {
-                bestAttempt = { ...result, emptyCount, perfectFit, score };
+            if (!bestAttempt || score > bestScore) {
+                bestScore = score;
+                bestAttempt = { ...result, emptyCount, perfectFit, isPerfectFit: (perfectFit === 0), score };
             }
 
             if (wordCount === words.length && perfectFit === 0) {
-                break; // Perfect fit found!
+                break;
             }
+        }
+
+        if (!bestAttempt) {
+            bestAttempt = {
+                grid: Array.from({ length: rows }, () => Array(cols).fill('')),
+                placedWords: [],
+                emptyCount: rows * cols,
+                perfectFit: rows * cols - cleanSolution.length,
+                isPerfectFit: false,
+                score: -999999
+            };
         }
 
         return { ...bestAttempt, attemptsMade };
