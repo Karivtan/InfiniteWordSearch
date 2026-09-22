@@ -320,14 +320,12 @@
             const totalCells = rows * cols;
             const cleanSolution = solution.replace(/\s+/g, '');
 
-            // STRICT CHECK: The solution characters must completely fit inside the grid size
             if (cleanSolution.length > totalCells) {
-                showError(`Error: The hidden solution has ${cleanSolution.length} characters, but the ${cols}x${rows} grid only has ${totalCells} cells. The solution must fit completely. Please increase grid dimensions or shorten the solution.`);
+                showError(`Error: The hidden solution has ${cleanSolution.length} characters, but the ${cols}x${rows} grid only has ${totalCells} cells. The solution must fit completely.`);
                 document.getElementById('outputSection').style.display = 'none';
                 return;
             }
 
-            // Filter out words that are too long for the grid and track them
             const validWords = [];
             const ignoredWords = [];
 
@@ -345,17 +343,17 @@
                 return;
             }
 
-            // Run optimization loop with interactive prompt if not all words fit
             let bestAttempt = null;
             let runMore = true;
 
             while (runMore) {
-                let result = runOptimizationPass(rows, cols, validWords, iterations);
-                if (!bestAttempt || result.placedWords.length > bestAttempt.placedWords.length) {
+                let result = runOptimizationPass(rows, cols, validWords, cleanSolution.length, iterations);
+                if (!bestAttempt || result.score > bestAttempt.score) {
                     bestAttempt = result;
                 }
 
-                if (bestAttempt.placedWords.length === validWords.length) {
+                // If we found a configuration where all words fit AND empty squares match exact solution length, stop early!
+                if (bestAttempt.placedWords.length === validWords.length && bestAttempt.emptyCount === cleanSolution.length) {
                     break;
                 }
 
@@ -386,7 +384,7 @@
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     if (grid[r][c] === '') {
-                        grid[r][c] = cleanSolution[solIndex];
+                        grid[r][c] = cleanSolution[solIndex % cleanSolution.length];
                         solIndex++;
                     }
                 }
@@ -420,18 +418,35 @@
     let currentSolutionCoords = new Set();
     let showSolutionState = false;
 
-    function runOptimizationPass(rows, cols, words, maxIterations) {
+    function runOptimizationPass(rows, cols, words, targetEmptyCount, maxIterations) {
         let bestAttempt = null;
-        let maxPlacedCount = -1;
+        let bestScore = -1;
 
         for (let iter = 0; iter < maxIterations; iter++) {
             let result = tryPlaceAllWords(rows, cols, words);
-            if (result.placedWords.length > maxPlacedCount) {
-                maxPlacedCount = result.placedWords.length;
-                bestAttempt = result;
+            
+            // Calculate how many empty cells remain
+            let emptyCount = 0;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (result.grid[r][c] === '') emptyCount++;
+                }
             }
-            if (maxPlacedCount === words.length) {
-                break;
+
+            // Scoring system:
+            // 1. Prioritize placing more words heavily (weight by 1000)
+            // 2. Prioritize getting emptyCount closer to targetEmptyCount (exact match gets max bonus)
+            let wordCount = result.placedWords.length;
+            let distanceToTarget = Math.abs(emptyCount - targetEmptyCount);
+            let score = (wordCount * 1000) - distanceToTarget;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestAttempt = { ...result, emptyCount, score };
+            }
+
+            if (wordCount === words.length && emptyCount === targetEmptyCount) {
+                break; // Perfect match found!
             }
         }
         return bestAttempt;
