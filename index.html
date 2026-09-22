@@ -123,7 +123,7 @@
         }
 
         .cell.highlight {
-            background-color: #fde047;
+            background-color: #fde047 !important;
         }
 
         .info-panel {
@@ -170,6 +170,44 @@
             text-align: center;
             display: none;
         }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .action-buttons button {
+            grid-column: auto;
+            flex: 1;
+        }
+
+        /* Print / PDF Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .controls, .error, .action-buttons, #solutionPanel {
+                display: none !important;
+            }
+            .container {
+                box-shadow: none;
+                padding: 0;
+                max-width: 100%;
+            }
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 10px;
+            }
+            .info-panel {
+                grid-template-columns: 1fr;
+            }
+            .cell {
+                border: 1px solid #000;
+            }
+        }
     </style>
 </head>
 <body>
@@ -205,13 +243,16 @@
                 <h3>Words to Find:</h3>
                 <ul id="wordList"></ul>
             </div>
-            <div class="panel-box">
+            <div class="panel-box" id="solutionPanel">
                 <h3>Hidden Solution:</h3>
                 <p id="solutionDisplay" class="solution-text">-</p>
             </div>
         </div>
         
-        <button id="toggleSolutionBtn" style="background-color: #0d9488;">Toggle Solution Highlight</button>
+        <div class="action-buttons">
+            <button id="toggleSolutionBtn" style="background-color: #0d9488;">Toggle Solution Highlight</button>
+            <button id="printBtn" style="background-color: #2563eb;">Print / Save to PDF</button>
+        </div>
     </div>
 </div>
 
@@ -263,6 +304,15 @@
                 }
             }
 
+            // Check if there are enough words/letters to fill/suit the puzzle matrix
+            const totalGridCells = rows * cols;
+            const totalWordLetters = words.reduce((sum, w) => sum.replace(/\s+/g, '').length, 0);
+            
+            if (totalWordLetters < Math.floor(totalGridCells * 0.25)) {
+                showError(`Warning: Total letters in your words (${totalWordLetters}) might be too few to nicely populate a ${cols}x${rows} (${totalGridCells} cells) grid. Consider adding more words or decreasing the grid size.`);
+                // We let it continue even with the warning, or you can block it if strict. Let's make it a warning message that still permits generation or let them adjust.
+            }
+
             generatePuzzle(rows, cols, words, solution);
 
         } catch (err) {
@@ -280,17 +330,16 @@
     let showSolutionState = false;
 
     function generatePuzzle(rows, cols, words, solution) {
-        // Initialize empty grid
         let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
         let placedWords = [];
         currentSolutionCoords.clear();
 
-        // Sort words by length descending to place larger words first
         const sortedWords = [...words].sort((a, b) => b.length - a.length);
 
         for (let word of sortedWords) {
             let placed = false;
             let attempts = 0;
+            const cleanWord = word.replace(/\s+/g, ''); // ignore spaces inside words if any
 
             while (!placed && attempts < 200) {
                 attempts++;
@@ -298,9 +347,9 @@
                 let startC = Math.floor(Math.random() * cols);
                 let dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
 
-                if (canPlaceWord(grid, word, startR, startC, dir, rows, cols)) {
-                    let coords = placeWord(grid, word, startR, startC, dir, rows, cols);
-                    placedWords.push({ word, coords });
+                if (canPlaceWord(grid, cleanWord, startR, startC, dir, rows, cols)) {
+                    let coords = placeWord(grid, cleanWord, startR, startC, dir, rows, cols);
+                    placedWords.push({ word: cleanWord, coords });
                     placed = true;
                 }
             }
@@ -312,7 +361,6 @@
             }
         }
 
-        // Fill remaining empty cells with random letters
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -322,12 +370,11 @@
             }
         }
 
-        // Store solution cell coordinates for highlighting
         placedWords.forEach(pw => {
             pw.coords.forEach(coord => currentSolutionCoords.add(`${coord.r},${coord.c}`));
         });
 
-        renderUI(grid, words, solution, placedWords);
+        renderUI(grid, words, solution);
     }
 
     function canPlaceWord(grid, word, startR, startC, dir, rows, cols) {
@@ -339,7 +386,6 @@
             if (currentLetter !== '' && currentLetter !== word[i].toUpperCase()) {
                 return false;
             }
-            // Toroidal wrap calculation using modulo
             r = (r + dir.r + rows) % rows;
             c = (c + dir.c + cols) % cols;
         }
@@ -360,7 +406,7 @@
         return coords;
     }
 
-    function renderUI(grid, words, solution, placedWords) {
+    function renderUI(grid, words, solution) {
         const gridEl = document.getElementById('puzzleGrid');
         const wordListEl = document.getElementById('wordList');
         const solutionDisplayEl = document.getElementById('solutionDisplay');
@@ -369,7 +415,6 @@
         const rows = grid.length;
         const cols = grid[0].length;
 
-        // Set CSS Grid template
         gridEl.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
         gridEl.innerHTML = '';
 
@@ -384,7 +429,6 @@
             }
         }
 
-        // Render Word List
         wordListEl.innerHTML = '';
         words.forEach(w => {
             const li = document.createElement('li');
@@ -411,6 +455,14 @@
         });
 
         document.getElementById('toggleSolutionBtn').textContent = showSolutionState ? "Hide Solution Highlight" : "Toggle Solution Highlight";
+    });
+
+    document.getElementById('printBtn').addEventListener('click', () => {
+        // Ensure solution highlights are turned off before printing
+        if (showSolutionState) {
+            document.getElementById('toggleSolutionBtn').click();
+        }
+        window.print();
     });
 </script>
 
