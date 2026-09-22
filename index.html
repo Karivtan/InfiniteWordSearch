@@ -344,11 +344,13 @@
                 return;
             }
 
-            // Check if there are enough words/characters to reasonably populate the grid space
-            let totalWordChars = validWords.reduce((sum, w) => sum + w.replace(/\s+/g, '').length, 0);
-            let notEnoughWordsWarning = null;
-            if (totalWordChars < Math.floor(totalCells * 0.35)) {
-                notEnoughWordsWarning = `Warning: There are relatively few words supplied (${validWords.length} words, ~${totalWordChars} characters) compared to the ${totalCells} grid cells. The puzzle may be sparse.`;
+            let totalValidWordChars = validWords.reduce((sum, w) => sum + w.replace(/\s+/g, '').length, 0);
+            let totalCharactersNeeded = totalValidWordChars + cleanSolution.length;
+
+            if (totalCharactersNeeded < totalCells) {
+                showError(`Error: Not enough total characters in your words and solution (${totalCharactersNeeded} characters) to fill the ${cols}x${rows} grid (${totalCells} cells). Please add more words or reduce grid size.`);
+                document.getElementById('outputSection').style.display = 'none';
+                return;
             }
 
             let bestAttempt = null;
@@ -360,34 +362,30 @@
                     bestAttempt = result;
                 }
 
-                if (bestAttempt.emptyCount === cleanSolution.length) {
+                if (bestAttempt.placedWords.length === validWords.length && bestAttempt.emptyCount === cleanSolution.length) {
                     break;
                 }
 
-                const userWantsMore = confirm(`Not all solution space constraints matched cleanly (${bestAttempt.placedWords.length} of ${validWords.length} words placed, ${bestAttempt.emptyCount} empty cells vs ${cleanSolution.length} solution length). Would you like to try 100 more iterations?`);
+                const userWantsMore = confirm(`Not all words fit into the puzzle (${bestAttempt.placedWords.length} of ${validWords.length} placed). Would you like to try 10 more iterations?`);
                 if (userWantsMore) {
-                    iterations = 100;
+                    iterations = 10;
                 } else {
                     runMore = false;
                 }
             }
 
             let warningTexts = [];
-            if (notEnoughWordsWarning) {
-                warningTexts.push(notEnoughWordsWarning);
-            }
             if (ignoredWords.length > 0) {
                 warningTexts.push(`Ignored word(s) too long for grid: ${ignoredWords.join(', ')}.`);
             }
             if (bestAttempt.placedWords.length < validWords.length) {
-                warningTexts.push(`Notice: ${validWords.length - bestAttempt.placedWords.length} word(s) were automatically omitted/trimmed to allow the hidden solution to fit perfectly.`);
+                warningTexts.push(`Notice: Only ${bestAttempt.placedWords.length} out of ${validWords.length} words could fit.`);
             }
 
             if (warningTexts.length > 0) {
                 showWarning(warningTexts.join(' '));
             }
 
-            // Fill remaining empty cells sequentially with characters from the solution string
             const grid = bestAttempt.grid;
             let solIndex = 0;
 
@@ -431,7 +429,6 @@
     function runOptimizationPassWithSolutionPruning(rows, cols, words, targetEmptyCount, maxIterations) {
         let bestAttempt = null;
 
-        // Sort words descending by length
         const sortedWords = words.map((w) => ({ word: w, clean: w.replace(/\s+/g, '') }))
                                  .sort((a, b) => b.clean.length - a.clean.length);
 
@@ -439,7 +436,6 @@
             let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
             let placedWords = [];
             
-            // Phase 1: Try to place as many words as possible
             for (let item of sortedWords) {
                 let totalCells = rows * cols;
                 let currentFilled = 0;
@@ -450,7 +446,6 @@
                 }
                 let currentEmpty = totalCells - currentFilled;
 
-                // If adding this word leaves fewer than targetEmptyCount spaces, skip it
                 if (currentEmpty - item.clean.length < targetEmptyCount && placedWords.length > 0) {
                     continue;
                 }
@@ -471,22 +466,17 @@
                 }
             }
 
-            // Phase 2: Check remaining empty cells. If we have fewer empty cells than targetEmptyCount,
-            // progressively remove already placed words (starting with shortest words) until solution fits!
             let emptyCount = getEmptyCount(grid);
             while (emptyCount < targetEmptyCount && placedWords.length > 0) {
-                // Sort placed words ascending by length (shortest first)
                 placedWords.sort((a, b) => a.cleanWord.length - b.cleanWord.length);
-                let removedWord = placedWords.shift(); // Remove the shortest placed word
+                let removedWord = placedWords.shift();
 
-                // Rebuild grid without the removed word
                 grid = Array.from({ length: rows }, () => Array(cols).fill(''));
                 for (let pw of placedWords) {
                     for (let coord of pw.coords) {
-                        grid[coord.r][coord.c] = pw.cleanWord[pw.coords.indexOf(coord)].toUpperCase(); // Simplified redraw
+                        grid[coord.r][coord.c] = pw.cleanWord[pw.coords.indexOf(coord)].toUpperCase();
                     }
                 }
-                // Re-evaluate empty count
                 emptyCount = getEmptyCount(grid);
             }
 
@@ -500,8 +490,8 @@
                 bestAttempt = { grid, placedWords, emptyCount, score };
             }
 
-            if (emptyCount === targetEmptyCount && placedWords.length > 0) {
-                break; // Perfect configuration found
+            if (emptyCount === targetEmptyCount && placedWords.length === sortedWords.length) {
+                break;
             }
         }
 
